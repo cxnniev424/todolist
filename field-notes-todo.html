@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F5F2EA;
+    --paper-raised:#FBF9F4;
+    --ink:#20241F;
+    --ink-soft:#5B5F55;
+    --line:#D9D4C3;
+    --teal:#3B7A70;
+    --teal-soft:#E4EEEB;
+    --amber:#CF9A3E;
+    --amber-soft:#F6ECD9;
+    --rust:#B4552F;
+    --rust-soft:#F3E4DB;
+    --indigo:#4C5C8C;
+    --plum:#7A4C6E;
+    --done:#6B8F71;
+    --shadow: 0 1px 0 rgba(32,36,31,0.06), 0 2px 8px rgba(32,36,31,0.05);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 27px, var(--line) 27px, var(--line) 28px),
+      repeating-linear-gradient(90deg, transparent, transparent 27px, var(--line) 27px, var(--line) 28px),
+      var(--paper);
+    background-size: 28px 28px, 28px 28px, cover;
+    color: var(--ink);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background: var(--amber-soft); }
+
+  .app{
+    display:flex;
+    min-height:100vh;
+  }
+
+  /* ---------- Sidebar / binder tabs ---------- */
+  .rail{
+    width:190px;
+    flex-shrink:0;
+    padding:28px 0 28px 20px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .rail-title{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size:20px;
+    letter-spacing:-0.02em;
+    padding: 0 16px 18px 4px;
+    line-height:1.1;
+  }
+  .rail-title span{
+    display:block;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:400;
+    font-size:11px;
+    letter-spacing:0.08em;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    margin-top:4px;
+  }
+  .tab{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:11px 14px;
+    margin-right:0;
+    border:1px solid var(--line);
+    border-right:none;
+    border-radius:8px 0 0 8px;
+    background: var(--paper);
+    font-size:13.5px;
+    font-weight:600;
+    cursor:pointer;
+    color: var(--ink-soft);
+    transition: background .15s ease, color .15s ease, transform .1s ease;
+  }
+  .tab .dot{
+    width:8px; height:8px; border-radius:50%;
+    flex-shrink:0;
+    background: var(--tab-color, var(--teal));
+  }
+  .tab .label{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tab .count{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color: var(--ink-soft);
+    opacity:.7;
+  }
+  .tab .del{
+    opacity:0;
+    font-size:14px;
+    line-height:1;
+    color: var(--rust);
+    padding:2px 4px;
+    border-radius:4px;
+    flex-shrink:0;
+  }
+  .tab:hover .del{ opacity:.6; }
+  .tab .del:hover{ opacity:1; background: var(--rust-soft); }
+  .tab:hover{ background: var(--paper-raised); color: var(--ink); }
+  .tab.active{
+    background: var(--paper-raised);
+    color: var(--ink);
+    box-shadow: var(--shadow);
+    transform: translateX(-2px);
+  }
+  .tab.active::after{
+    content:'';
+    position:absolute;
+    right:-1px; top:0; bottom:0; width:4px;
+    background: var(--tab-color, var(--teal));
+    border-radius:0 4px 4px 0;
+  }
+  .tab-add{
+    display:flex; align-items:center; gap:8px;
+    padding:11px 14px;
+    border:1px dashed var(--line);
+    border-right:none;
+    border-radius:8px 0 0 8px;
+    background:transparent;
+    font-size:13px;
+    color: var(--ink-soft);
+    cursor:pointer;
+    font-weight:500;
+    margin-top:4px;
+  }
+  .tab-add:hover{ border-color: var(--ink-soft); color: var(--ink); }
+  .tab-add-form{
+    display:flex; margin-top:4px;
+  }
+  .tab-add-form input{
+    flex:1;
+    border:1px solid var(--ink);
+    border-right:none;
+    border-radius:8px 0 0 8px;
+    padding:9px 10px;
+    font-size:13px;
+    font-family:inherit;
+    background: var(--paper-raised);
+    outline:none;
+  }
+
+  /* ---------- Main panel ---------- */
+  .main{
+    flex:1;
+    background: var(--paper-raised);
+    margin:16px 16px 16px 0;
+    border-radius:14px;
+    border:1px solid var(--line);
+    box-shadow: var(--shadow);
+    padding:32px 40px 40px;
+    min-width:0;
+  }
+  .main-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    margin-bottom:26px;
+    gap:20px;
+  }
+  .main-header h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:28px;
+    font-weight:700;
+    letter-spacing:-0.01em;
+    margin:0 0 4px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .main-header .sub{
+    font-size:13px;
+    color: var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .date{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color: var(--ink-soft);
+    text-align:right;
+    padding-top:4px;
+  }
+
+  .add-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:30px;
+  }
+  .add-row input{
+    flex:1;
+    padding:13px 16px;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    font-family:'Inter', sans-serif;
+    font-size:14.5px;
+    background: var(--paper);
+    outline:none;
+    transition: border-color .15s ease;
+  }
+  .add-row input:focus{ border-color: var(--tab-color, var(--teal)); }
+  .add-row button{
+    padding:0 22px;
+    border:none;
+    border-radius:10px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:14px;
+    cursor:pointer;
+    transition: opacity .15s ease;
+  }
+  .add-row button:hover{ opacity:.85; }
+
+  .columns{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:24px;
+  }
+  @media (max-width: 760px){
+    .columns{ grid-template-columns: 1fr; }
+    .app{ flex-direction:column; }
+    .rail{ flex-direction:row; width:auto; padding:16px; overflow-x:auto; }
+    .tab, .tab-add{ border-radius:8px; border-right:1px solid var(--line); flex-shrink:0; }
+    .main{ margin:0 16px 16px; }
+  }
+
+  .col-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.09em;
+    color: var(--ink-soft);
+    margin-bottom:14px;
+    padding-bottom:8px;
+    border-bottom:1px solid var(--line);
+  }
+  .col-head .n{
+    background: var(--line);
+    color: var(--ink);
+    border-radius:20px;
+    padding:1px 8px;
+    font-size:10.5px;
+  }
+  .col-not .swatch{ background: var(--rust); }
+  .col-ongoing .swatch{ background: var(--amber); }
+  .swatch{ width:7px; height:7px; border-radius:50%; }
+
+  .card-list{ display:flex; flex-direction:column; gap:12px; min-height:40px; }
+  .empty-hint{
+    font-size:12.5px;
+    color: var(--ink-soft);
+    font-style:italic;
+    padding:10px 2px;
+  }
+
+  .card{
+    background: var(--paper);
+    border:1px solid var(--line);
+    border-radius:11px;
+    padding:14px 16px 12px;
+    transition: opacity .35s ease, transform .35s ease;
+  }
+  .card.fading{
+    opacity:0;
+    transform: scale(.92) translateY(4px);
+  }
+  .card-top{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .card-title{
+    font-size:14.5px;
+    font-weight:500;
+    line-height:1.35;
+    word-break: break-word;
+  }
+  .status-toggle{
+    display:flex;
+    flex-shrink:0;
+    border:1px solid var(--line);
+    border-radius:20px;
+    overflow:hidden;
+    background: var(--paper-raised);
+  }
+  .status-toggle button{
+    border:none;
+    background:transparent;
+    width:26px; height:26px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    color: var(--ink-soft);
+    font-size:13px;
+    transition: background .15s ease, color .15s ease;
+  }
+  .status-toggle button:not(:last-child){ border-right:1px solid var(--line); }
+  .status-toggle button.on.not{ background: var(--rust-soft); color: var(--rust); }
+  .status-toggle button.on.ongoing{ background: var(--amber-soft); color: var(--amber); }
+  .status-toggle button.on.done{ background: var(--done); color: var(--paper); }
+  .status-toggle button:hover:not(.on){ background: var(--line); }
+
+  .gauge{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .gauge input[type=range]{
+    -webkit-appearance:none;
+    appearance:none;
+    flex:1;
+    height:20px;
+    background:transparent;
+    cursor:pointer;
+    margin:0;
+  }
+  .gauge input[type=range]::-webkit-slider-runnable-track{
+    height:6px;
+    border-radius:3px;
+    background:
+      repeating-linear-gradient(90deg, var(--ink) 0 1px, transparent 1px 10%),
+      linear-gradient(to right, var(--tab-color, var(--teal)) var(--fill, 0%), var(--line) var(--fill,0%));
+    background-blend-mode: normal;
+  }
+  .gauge input[type=range]::-moz-range-track{
+    height:6px;
+    border-radius:3px;
+    background: var(--line);
+  }
+  .gauge input[type=range]::-moz-range-progress{
+    height:6px;
+    border-radius:3px;
+    background: var(--tab-color, var(--teal));
+  }
+  .gauge input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:16px; height:16px;
+    border-radius:50%;
+    background: var(--paper-raised);
+    border:2.5px solid var(--tab-color, var(--teal));
+    margin-top:-5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .gauge input[type=range]::-moz-range-thumb{
+    width:16px; height:16px;
+    border-radius:50%;
+    background: var(--paper-raised);
+    border:2.5px solid var(--tab-color, var(--teal));
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .gauge .readout{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color: var(--ink-soft);
+    width:34px;
+    text-align:right;
+    flex-shrink:0;
+  }
+  .card-remove{
+    border:none;
+    background:none;
+    color: var(--ink-soft);
+    font-size:11px;
+    cursor:pointer;
+    padding:4px 0 0;
+    font-family:'IBM Plex Mono', monospace;
+    opacity:.55;
+  }
+  .card-remove:hover{ opacity:1; color: var(--rust); }
+
+  /* ---------- Archive ---------- */
+  .archive{
+    margin-top:32px;
+    border-top:1px solid var(--line);
+    padding-top:16px;
+  }
+  .archive-toggle{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:none;
+    border:none;
+    cursor:pointer;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color: var(--ink-soft);
+    padding:4px 0;
+  }
+  .archive-toggle .chev{
+    display:inline-block;
+    transition: transform .2s ease;
+  }
+  .archive-toggle.open .chev{ transform: rotate(90deg); }
+  .archive-body{
+    display:none;
+    flex-direction:column;
+    gap:8px;
+    margin-top:14px;
+  }
+  .archive-body.open{ display:flex; }
+  .archive-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:9px 14px;
+    background: var(--paper);
+    border:1px solid var(--line);
+    border-radius:9px;
+    font-size:13px;
+  }
+  .archive-item .t{
+    text-decoration: line-through;
+    color: var(--ink-soft);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .archive-item .actions{ display:flex; gap:6px; flex-shrink:0; }
+  .archive-item button{
+    border:1px solid var(--line);
+    background: var(--paper-raised);
+    border-radius:6px;
+    font-size:11px;
+    padding:4px 9px;
+    cursor:pointer;
+    font-family:'IBM Plex Mono', monospace;
+    color: var(--ink-soft);
+  }
+  .archive-item button:hover{ color: var(--ink); border-color: var(--ink-soft); }
+  .archive-empty{ font-size:12.5px; color: var(--ink-soft); font-style:italic; }
+
+  .no-section{
+    text-align:center;
+    padding:80px 20px;
+    color: var(--ink-soft);
+  }
+  .no-section h2{ font-family:'Space Grotesk', sans-serif; color:var(--ink); }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+(function(){
+  const COLORS = ['#3B7A70','#B4552F','#4C5C8C','#CF9A3E','#7A4C6E'];
+  const STORAGE_KEY = 'field-notes-data';
+
+  let data = null;
+  let activeSectionId = null;
+  let archiveOpen = false;
+  let addingSection = false;
+
+  function uid(){ return Math.random().toString(36).slice(2,9); }
+
+  function defaultData(){
+    return {
+      sections: [
+        {
+          id: uid(), name: 'Chemistry', color: COLORS[0],
+          tasks: [
+            { id: uid(), title: 'Balance redox equations, ch. 4', status: 'ongoing', progress: 55, archived:false },
+            { id: uid(), title: 'Titration lab write-up', status: 'not', progress: 0, archived:false },
+          ]
+        },
+        {
+          id: uid(), name: 'Robotics', color: COLORS[1],
+          tasks: [
+            { id: uid(), title: 'Wire the motor driver board', status: 'ongoing', progress: 30, archived:false },
+            { id: uid(), title: 'Order replacement servos', status: 'not', progress: 0, archived:false },
+          ]
+        }
+      ]
+    };
+  }
+
+  async function load(){
+    try{
+      const res = await window.storage.get(STORAGE_KEY, false);
+      if(res && res.value){
+        data = JSON.parse(res.value);
+      } else {
+        data = defaultData();
+        await save();
+      }
+    } catch(e){
+      data = defaultData();
+      await save();
+    }
+    activeSectionId = data.sections[0] ? data.sections[0].id : null;
+    render();
+  }
+
+  async function save(){
+    try{
+      await window.storage.set(STORAGE_KEY, JSON.stringify(data), false);
+    } catch(e){
+      console.error('storage save failed', e);
+    }
+  }
+
+  function getSection(id){ return data.sections.find(s => s.id === id); }
+
+  function fmtDate(){
+    const d = new Date();
+    return d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+  }
+
+  function el(html){
+    const t = document.createElement('template');
+    t.innerHTML = html.trim();
+    return t.content.firstElementChild;
+  }
+
+  function render(){
+    const app = document.getElementById('app');
+    app.innerHTML = '';
+
+    // ---------- Rail ----------
+    const rail = el(`<div class="rail">
+      <div class="rail-title">Field Notes<span>lab &amp; project log</span></div>
+    </div>`);
+
+    data.sections.forEach(sec => {
+      const activeClass = sec.id === activeSectionId ? 'tab active' : 'tab';
+      const openCount = sec.tasks.filter(t => !t.archived).length;
+      const tab = el(`<div class="${activeClass}" style="--tab-color:${sec.color}">
+          <span class="dot"></span>
+          <span class="label"></span>
+          <span class="count">${openCount}</span>
+          <span class="del">✕</span>
+        </div>`);
+      tab.querySelector('.label').textContent = sec.name;
+      tab.addEventListener('click', (ev) => {
+        if(ev.target.classList.contains('del')) return;
+        activeSectionId = sec.id;
+        archiveOpen = false;
+        render();
+      });
+      tab.querySelector('.del').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if(confirm(`Delete "${sec.name}" and all its tasks?`)){
+          data.sections = data.sections.filter(s => s.id !== sec.id);
+          if(activeSectionId === sec.id){
+            activeSectionId = data.sections[0] ? data.sections[0].id : null;
+          }
+          save();
+          render();
+        }
+      });
+      rail.appendChild(tab);
+    });
+
+    if(addingSection){
+      const form = el(`<div class="tab-add-form">
+        <input type="text" placeholder="Section name…" maxlength="30" />
+      </div>`);
+      const input = form.querySelector('input');
+      form.addEventListener('keydown', (ev) => {
+        if(ev.key === 'Enter'){
+          commitNewSection(input.value);
+        } else if(ev.key === 'Escape'){
+          addingSection = false; render();
+        }
+      });
+      rail.appendChild(form);
+      setTimeout(() => input.focus(), 0);
+      // commit on blur too
+      input.addEventListener('blur', () => commitNewSection(input.value));
+    } else {
+      const addTab = el(`<div class="tab-add">+ New section</div>`);
+      addTab.addEventListener('click', () => { addingSection = true; render(); });
+      rail.appendChild(addTab);
+    }
+
+    app.appendChild(rail);
+
+    // ---------- Main ----------
+    const section = getSection(activeSectionId);
+    const main = el(`<div class="main"></div>`);
+
+    if(!section){
+      main.appendChild(el(`<div class="no-section">
+        <h2>No section yet</h2>
+        <p>Create one from the left to start logging tasks.</p>
+      </div>`));
+      app.appendChild(main);
+      return;
+    }
+
+    main.style.setProperty('--tab-color', section.color);
+
+    const header = el(`<div class="main-header">
+      <div>
+        <h1><span class="dot" style="width:11px;height:11px;border-radius:50%;background:${section.color};display:inline-block;"></span><span></span></h1>
+        <div class="sub"></div>
+      </div>
+      <div class="date">${fmtDate()}</div>
+    </div>`);
+    header.querySelector('h1 span:last-child').textContent = section.name;
+    const notCount = section.tasks.filter(t=>!t.archived && t.status==='not').length;
+    const ongCount = section.tasks.filter(t=>!t.archived && t.status==='ongoing').length;
+    const doneCount = section.tasks.filter(t=>t.archived).length;
+    header.querySelector('.sub').textContent = `${notCount} not started · ${ongCount} ongoing · ${doneCount} archived`;
+    main.appendChild(header);
+
+    // add row
+    const addRow = el(`<div class="add-row">
+      <input type="text" placeholder="Add a task to ${section.name}…" maxlength="140" />
+      <button>Add</button>
+    </div>`);
+    const addInput = addRow.querySelector('input');
+    function commitAdd(){
+      const v = addInput.value.trim();
+      if(!v) return;
+      section.tasks.unshift({ id: uid(), title: v, status:'not', progress:0, archived:false });
+      addInput.value = '';
+      save();
+      render();
+    }
+    addRow.querySelector('button').addEventListener('click', commitAdd);
+    addInput.addEventListener('keydown', (ev) => { if(ev.key === 'Enter') commitAdd(); });
+    main.appendChild(addRow);
+
+    // columns
+    const columns = el(`<div class="columns"></div>`);
+    columns.appendChild(buildColumn(section, 'not', 'Not started'));
+    columns.appendChild(buildColumn(section, 'ongoing', 'Ongoing'));
+    main.appendChild(columns);
+
+    // archive
+    const archived = section.tasks.filter(t => t.archived);
+    const archiveWrap = el(`<div class="archive"></div>`);
+    const archToggle = el(`<button class="archive-toggle${archiveOpen ? ' open':''}"><span class="chev">▸</span><span>Archive (${archived.length} done)</span></button>`);
+    archToggle.addEventListener('click', () => { archiveOpen = !archiveOpen; render(); });
+    archiveWrap.appendChild(archToggle);
+
+    const archBody = el(`<div class="archive-body${archiveOpen ? ' open':''}"></div>`);
+    if(archived.length === 0){
+      archBody.appendChild(el(`<div class="archive-empty">Nothing archived yet — finished tasks land here.</div>`));
+    } else {
+      archived.forEach(t => {
+        const item = el(`<div class="archive-item">
+          <span class="t"></span>
+          <span class="actions">
+            <button data-act="restore">Restore</button>
+            <button data-act="delete">Delete</button>
+          </span>
+        </div>`);
+        item.querySelector('.t').textContent = t.title;
+        item.querySelector('[data-act=restore]').addEventListener('click', () => {
+          t.archived = false; t.status = 'ongoing';
+          save(); render();
+        });
+        item.querySelector('[data-act=delete]').addEventListener('click', () => {
+          section.tasks = section.tasks.filter(x => x.id !== t.id);
+          save(); render();
+        });
+        archBody.appendChild(item);
+      });
+    }
+    archiveWrap.appendChild(archBody);
+    main.appendChild(archiveWrap);
+
+    app.appendChild(main);
+  }
+
+  function buildColumn(section, statusKey, label){
+    const cls = statusKey === 'not' ? 'col-not' : 'col-ongoing';
+    const tasks = section.tasks.filter(t => !t.archived && t.status === statusKey);
+    const col = el(`<div>
+      <div class="col-head ${cls}"><span class="swatch"></span><span></span><span class="n">${tasks.length}</span></div>
+      <div class="card-list"></div>
+    </div>`);
+    col.querySelector('.col-head span:nth-child(2)').textContent = label;
+    const list = col.querySelector('.card-list');
+    if(tasks.length === 0){
+      list.appendChild(el(`<div class="empty-hint">Nothing here.</div>`));
+    }
+    tasks.forEach(t => list.appendChild(buildCard(section, t)));
+    return col;
+  }
+
+  function buildCard(section, t){
+    const card = el(`<div class="card" style="--tab-color:${section.color}"></div>`);
+    const top = el(`<div class="card-top">
+      <div class="card-title"></div>
+      <div class="status-toggle">
+        <button data-s="not" title="Not started">○</button>
+        <button data-s="ongoing" title="Ongoing">◐</button>
+        <button data-s="done" title="Done">✓</button>
+      </div>
+    </div>`);
+    top.querySelector('.card-title').textContent = t.title;
+    top.querySelectorAll('.status-toggle button').forEach(btn => {
+      const s = btn.dataset.s;
+      if(s === t.status) btn.classList.add('on', s);
+      btn.addEventListener('click', () => setStatus(section, t, s, card));
+    });
+    card.appendChild(top);
+
+    const gauge = el(`<div class="gauge">
+      <input type="range" min="0" max="100" step="5" value="${t.progress}" />
+      <span class="readout">${t.progress}%</span>
+    </div>`);
+    const range = gauge.querySelector('input');
+    range.style.setProperty('--fill', t.progress + '%');
+    range.addEventListener('input', () => {
+      const v = parseInt(range.value, 10);
+      t.progress = v;
+      gauge.querySelector('.readout').textContent = v + '%';
+      range.style.setProperty('--fill', v + '%');
+      if(v > 0 && t.status === 'not'){
+        t.status = 'ongoing';
+        renderSoon();
+      }
+    });
+    range.addEventListener('change', save);
+    card.appendChild(gauge);
+
+    const removeBtn = el(`<button class="card-remove">delete task</button>`);
+    removeBtn.addEventListener('click', () => {
+      section.tasks = section.tasks.filter(x => x.id !== t.id);
+      save(); render();
+    });
+    card.appendChild(removeBtn);
+
+    return card;
+  }
+
+  let renderTimer = null;
+  function renderSoon(){
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(render, 250);
+  }
+
+  function setStatus(section, t, s, cardEl){
+    if(s === 'done' && t.status !== 'done'){
+      // animate the card fading out, then archive it
+      if(cardEl){
+        cardEl.classList.add('fading');
+        setTimeout(() => {
+          t.status = 'done';
+          t.archived = true;
+          t.progress = 100;
+          save();
+          render();
+        }, 320);
+        return;
+      }
+      t.status = 'done';
+      t.archived = true;
+      t.progress = 100;
+      save();
+      render();
+      return;
+    }
+    t.status = s;
+    if(s !== 'not' && t.progress === 0) t.progress = 5;
+    if(s === 'not') t.progress = 0;
+    save();
+    render();
+  }
+
+  function commitNewSection(name){
+    const v = (name || '').trim();
+    addingSection = false;
+    if(v){
+      const color = COLORS[data.sections.length % COLORS.length];
+      const sec = { id: uid(), name: v, color, tasks: [] };
+      data.sections.push(sec);
+      activeSectionId = sec.id;
+      save();
+    }
+    render();
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
