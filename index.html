@@ -490,29 +490,56 @@
   }
 
   async function load(){
+  let res = null;
+  let readFailed = false;
+
+  try{
+    res = await window.storage.get(STORAGE_KEY, false);
+  } catch(e){
+    // window.storage.get() throws both when the key doesn't exist yet
+    // AND on transient errors (e.g. a flaky connection). Retry once
+    // before assuming it's really a first-time load — otherwise a
+    // brief network hiccup can wipe out everything you've saved.
     try{
-      const res = await window.storage.get(STORAGE_KEY, false);
-      if(res && res.value){
-        data = JSON.parse(res.value);
-      } else {
-        data = defaultData();
-        await save();
-      }
-    } catch(e){
-      data = defaultData();
-      await save();
+      await new Promise(r => setTimeout(r, 400));
+      res = await window.storage.get(STORAGE_KEY, false);
+    } catch(e2){
+      readFailed = true;
     }
-    activeSectionId = data.sections[0] ? data.sections[0].id : null;
-    render();
   }
 
-  async function save(){
+  if(res && res.value){
     try{
-      await window.storage.set(STORAGE_KEY, JSON.stringify(data), false);
-    } catch(e){
-      console.error('storage save failed', e);
+      data = JSON.parse(res.value);
+    } catch(parseErr){
+      console.error('saved data was corrupted', parseErr);
+      data = defaultData();
     }
+  } else if(readFailed){
+    // Genuinely couldn't reach storage after a retry. Don't overwrite
+    // whatever is saved out there — just show defaults locally without
+    // saving, so a later successful save() can't be a silent data-loss event.
+    data = defaultData();
+  } else {
+    // Confirmed first-time use (no error, just nothing stored yet).
+    data = defaultData();
+    await save();
   }
+
+  activeSectionId = data.sections[0] ? data.sections[0].id : null;
+  render();
+}
+
+async function save(){
+  try{
+    const result = await window.storage.set(STORAGE_KEY, JSON.stringify(data), false);
+    if(!result){
+      console.error('storage save returned no result — data may not have persisted');
+    }
+  } catch(e){
+    console.error('storage save failed', e);
+  }
+}
 
   function getSection(id){ return data.sections.find(s => s.id === id); }
 
@@ -567,22 +594,28 @@
     });
 
     if(addingSection){
-      const form = el(`<div class="tab-add-form">
-        <input type="text" placeholder="Section name…" maxlength="30" />
-      </div>`);
-      const input = form.querySelector('input');
-      form.addEventListener('keydown', (ev) => {
-        if(ev.key === 'Enter'){
-          commitNewSection(input.value);
-        } else if(ev.key === 'Escape'){
-          addingSection = false; render();
-        }
-      });
-      rail.appendChild(form);
-      setTimeout(() => input.focus(), 0);
-      // commit on blur too
-      input.addEventListener('blur', () => commitNewSection(input.value));
-    } else {
+  const form = el(`<div class="tab-add-form">
+    <input type="text" placeholder="Section name…" maxlength="30" />
+  </div>`);
+  const input = form.querySelector('input');
+  let committed = false; // guards against Enter + the resulting blur both firing
+  function commitOnce(){
+    if(committed) return;
+    committed = true;
+    commitNewSection(input.value);
+  }
+  form.addEventListener('keydown', (ev) => {
+    if(ev.key === 'Enter'){
+      commitOnce();
+    } else if(ev.key === 'Escape'){
+      committed = true; // don't let the resulting blur add anything
+      addingSection = false; render();
+    }
+  });
+  rail.appendChild(form);
+  setTimeout(() => input.focus(), 0);
+  input.addEventListener('blur', commitOnce);
+} else {
       const addTab = el(`<div class="tab-add">+ New section</div>`);
       addTab.addEventListener('click', () => { addingSection = true; render(); });
       rail.appendChild(addTab);
