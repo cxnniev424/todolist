@@ -490,52 +490,20 @@
   }
 
   async function load(){
-  let res = null;
-  let readFailed = false;
-
   try{
-    res = await window.storage.get(STORAGE_KEY, false);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    data = raw ? JSON.parse(raw) : defaultData();
   } catch(e){
-    // window.storage.get() throws both when the key doesn't exist yet
-    // AND on transient errors (e.g. a flaky connection). Retry once
-    // before assuming it's really a first-time load — otherwise a
-    // brief network hiccup can wipe out everything you've saved.
-    try{
-      await new Promise(r => setTimeout(r, 400));
-      res = await window.storage.get(STORAGE_KEY, false);
-    } catch(e2){
-      readFailed = true;
-    }
-  }
-
-  if(res && res.value){
-    try{
-      data = JSON.parse(res.value);
-    } catch(parseErr){
-      console.error('saved data was corrupted', parseErr);
-      data = defaultData();
-    }
-  } else if(readFailed){
-    // Genuinely couldn't reach storage after a retry. Don't overwrite
-    // whatever is saved out there — just show defaults locally without
-    // saving, so a later successful save() can't be a silent data-loss event.
+    console.error('failed to load saved data', e);
     data = defaultData();
-  } else {
-    // Confirmed first-time use (no error, just nothing stored yet).
-    data = defaultData();
-    await save();
   }
-
   activeSectionId = data.sections[0] ? data.sections[0].id : null;
   render();
 }
 
 async function save(){
   try{
-    const result = await window.storage.set(STORAGE_KEY, JSON.stringify(data), false);
-    if(!result){
-      console.error('storage save returned no result — data may not have persisted');
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch(e){
     console.error('storage save failed', e);
   }
